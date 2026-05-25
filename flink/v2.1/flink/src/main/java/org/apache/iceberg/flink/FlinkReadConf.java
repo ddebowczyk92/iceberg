@@ -210,4 +210,13 @@ public class FlinkReadConf {
         .defaultValue(FlinkReadOptions.WATERMARK_COLUMN_TIME_UNIT_OPTION.defaultValue())
         .parse();
   }
+
+  public boolean changelogEnabled() {
+    return confParser
+        .booleanConf()
+        .option(FlinkReadOptions.CHANGELOG_ENABLED)
+        .flinkConfig(FlinkReadOptions.CHANGELOG_ENABLED_OPTION)
+        .defaultValue(FlinkReadOptions.CHANGELOG_ENABLED_OPTION.defaultValue())
+        .parse();
+  }
 }

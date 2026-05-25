@@ -23,15 +23,20 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import org.apache.flink.annotation.Internal;
+import org.apache.iceberg.ChangelogScanTask;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.IncrementalAppendScan;
+import org.apache.iceberg.IncrementalChangelogScan;
 import org.apache.iceberg.Scan;
+import org.apache.iceberg.ScanTaskGroup;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.expressions.Expression;
+import org.apache.iceberg.flink.source.split.IcebergChangelogSourceSplit;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 import org.apache.iceberg.hadoop.Util;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.relocated.com.google.common.annotations.VisibleForTesting;
@@ -70,14 +75,35 @@ public class FlinkSplitPlanner {
   }
 
   /** This returns splits for the FLIP-27 source */
-  public static List<IcebergSourceSplit> planIcebergSourceSplits(
+  public static List<IcebergSplit> planIcebergSourceSplits(
       Table table, ScanContext context, ExecutorService workerPool) {
+    ScanMode scanMode = checkScanMode(context);
+    if (scanMode == ScanMode.CHANGELOG_SCAN) {
+      return planIcebergChangelogSplits(table, context, workerPool);
+    }
+
     try (CloseableIterable<CombinedScanTask> tasksIterable =
         planTasks(table, context, workerPool)) {
       return Lists.newArrayList(
           CloseableIterable.transform(tasksIterable, IcebergSourceSplit::fromCombinedScanTask));
     } catch (IOException e) {
       throw new UncheckedIOException("Failed to process task iterable: ", e);
+    }
+  }
+
+  static List<IcebergSplit> planIcebergChangelogSplits(
+      Table table, ScanContext context, ExecutorService workerPool) {
+    try (CloseableIterable<ScanTaskGroup<ChangelogScanTask>> taskGroups =
+        planChangelogTasks(table, context, workerPool)) {
+      List<IcebergSplit> splits = Lists.newArrayList();
+      for (ScanTaskGroup<ChangelogScanTask> taskGroup : taskGroups) {
+        for (ChangelogScanTask task : taskGroup.tasks()) {
+          splits.add(IcebergChangelogSourceSplit.fromChangelogScanTask(task));
+        }
+      }
+      return splits;
+    } catch (IOException e) {
+      throw new UncheckedIOException("Failed to process changelog task iterable: ", e);
     }
   }
 
@@ -137,15 +163,56 @@ public class FlinkSplitPlanner {
     }
   }
 
+  static CloseableIterable<ScanTaskGroup<ChangelogScanTask>> planChangelogTasks(
+      Table table, ScanContext context, ExecutorService workerPool) {
+    IncrementalChangelogScan scan = table.newIncrementalChangelogScan();
+    scan = refineChangelogScanWithBaseConfigs(scan, context, workerPool);
+
+    if (context.startTag() != null) {
+      Preconditions.checkArgument(
+          table.snapshot(context.startTag()) != null,
+          "Cannot find snapshot with tag %s",
+          context.startTag());
+      scan = scan.fromSnapshotExclusive(table.snapshot(context.startTag()).snapshotId());
+    }
+
+    if (context.startSnapshotId() != null) {
+      Preconditions.checkArgument(
+          context.startTag() == null, "START_SNAPSHOT_ID and START_TAG cannot both be set");
+      scan = scan.fromSnapshotExclusive(context.startSnapshotId());
+    }
+
+    if (context.endTag() != null) {
+      Preconditions.checkArgument(
+          table.snapshot(context.endTag()) != null,
+          "Cannot find snapshot with tag %s",
+          context.endTag());
+      scan = scan.toSnapshot(table.snapshot(context.endTag()).snapshotId());
+    }
+
+    if (context.endSnapshotId() != null) {
+      Preconditions.checkArgument(
+          context.endTag() == null, "END_SNAPSHOT_ID and END_TAG cannot both be set");
+      scan = scan.toSnapshot(context.endSnapshotId());
+    }
+
+    return scan.planTasks();
+  }
+
   @VisibleForTesting
   enum ScanMode {
     BATCH,
-    INCREMENTAL_APPEND_SCAN
+    INCREMENTAL_APPEND_SCAN,
+    CHANGELOG_SCAN
   }
 
   @VisibleForTesting
   static ScanMode checkScanMode(ScanContext context) {
-    if (context.startSnapshotId() != null
+    if (context.changelogEnabled()) {
+      Preconditions.checkArgument(
+          context.isStreaming(), "Changelog scan is only supported in streaming mode");
+      return ScanMode.CHANGELOG_SCAN;
+    } else if (context.startSnapshotId() != null
         || context.endSnapshotId() != null
         || context.startTag() != null
         || context.endTag() != null) {
@@ -158,6 +225,38 @@ public class FlinkSplitPlanner {
   /** refine scan with common configs */
   private static <T extends Scan<T, FileScanTask, CombinedScanTask>> T refineScanWithBaseConfigs(
       T scan, ScanContext context, ExecutorService workerPool) {
+    T refinedScan =
+        scan.caseSensitive(context.caseSensitive()).project(context.project()).planWith(workerPool);
+
+    if (context.includeColumnStats()) {
+      refinedScan = refinedScan.includeColumnStats();
+    }
+
+    if (context.includeStatsForColumns() != null) {
+      refinedScan = refinedScan.includeColumnStats(context.includeStatsForColumns());
+    }
+
+    refinedScan = refinedScan.option(TableProperties.SPLIT_SIZE, context.splitSize().toString());
+
+    refinedScan =
+        refinedScan.option(TableProperties.SPLIT_LOOKBACK, context.splitLookback().toString());
+
+    refinedScan =
+        refinedScan.option(
+            TableProperties.SPLIT_OPEN_FILE_COST, context.splitOpenFileCost().toString());
+
+    if (context.filters() != null) {
+      for (Expression filter : context.filters()) {
+        refinedScan = refinedScan.filter(filter);
+      }
+    }
+
+    return refinedScan;
+  }
+
+  private static <T extends Scan<T, ChangelogScanTask, ScanTaskGroup<ChangelogScanTask>>>
+      T refineChangelogScanWithBaseConfigs(
+          T scan, ScanContext context, ExecutorService workerPool) {
     T refinedScan =
         scan.caseSensitive(context.caseSensitive()).project(context.project()).planWith(workerPool);
 

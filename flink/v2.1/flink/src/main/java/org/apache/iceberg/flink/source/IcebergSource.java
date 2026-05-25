@@ -64,6 +64,7 @@ import org.apache.iceberg.flink.source.enumerator.ContinuousSplitPlannerImpl;
 import org.apache.iceberg.flink.source.enumerator.IcebergEnumeratorState;
 import org.apache.iceberg.flink.source.enumerator.IcebergEnumeratorStateSerializer;
 import org.apache.iceberg.flink.source.enumerator.StaticIcebergEnumerator;
+import org.apache.iceberg.flink.source.reader.ChangelogRowDataReaderFunction;
 import org.apache.iceberg.flink.source.reader.ColumnStatsWatermarkExtractor;
 import org.apache.iceberg.flink.source.reader.ConverterReaderFunction;
 import org.apache.iceberg.flink.source.reader.IcebergSourceReader;
@@ -74,8 +75,8 @@ import org.apache.iceberg.flink.source.reader.RowDataConverter;
 import org.apache.iceberg.flink.source.reader.RowDataReaderFunction;
 import org.apache.iceberg.flink.source.reader.SerializableRecordEmitter;
 import org.apache.iceberg.flink.source.reader.SplitWatermarkExtractor;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitSerializer;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 import org.apache.iceberg.flink.source.split.SerializableComparator;
 import org.apache.iceberg.flink.source.split.SplitComparators;
 import org.apache.iceberg.flink.util.FlinkCompatibilityUtil;
@@ -86,7 +87,7 @@ import org.apache.iceberg.util.ThreadPools;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEnumeratorState> {
+public class IcebergSource<T> implements Source<T, IcebergSplit, IcebergEnumeratorState> {
   private static final Logger LOG = LoggerFactory.getLogger(IcebergSource.class);
 
   // This table loader can be closed, and it is only safe to use this instance for resource
@@ -98,21 +99,21 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
   private final ScanContext scanContext;
   private final ReaderFunction<T> readerFunction;
   private final SplitAssignerFactory assignerFactory;
-  private final SerializableComparator<IcebergSourceSplit> splitComparator;
+  private final SerializableComparator<IcebergSplit> splitComparator;
   private final SerializableRecordEmitter<T> emitter;
   private final String tableName;
 
   // cache the discovered splits by planSplitsForBatch, which can be called twice. And they come
   // from two different threads: (1) source/stream construction by main thread (2) enumerator
   // creation. Hence need volatile here.
-  private volatile List<IcebergSourceSplit> batchSplits;
+  private volatile List<IcebergSplit> batchSplits;
 
   IcebergSource(
       TableLoader tableLoader,
       ScanContext scanContext,
       ReaderFunction<T> readerFunction,
       SplitAssignerFactory assignerFactory,
-      SerializableComparator<IcebergSourceSplit> splitComparator,
+      SerializableComparator<IcebergSplit> splitComparator,
       Table table,
       SerializableRecordEmitter<T> emitter) {
     Preconditions.checkNotNull(tableLoader, "tableLoader is required.");
@@ -146,7 +147,7 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
    * Cache the enumerated splits for batch execution to avoid double planning as there are two code
    * paths obtaining splits: (1) infer parallelism (2) enumerator creation.
    */
-  private List<IcebergSourceSplit> planSplitsForBatch(String threadName) {
+  private List<IcebergSplit> planSplitsForBatch(String threadName) {
     if (batchSplits != null) {
       return batchSplits;
     }
@@ -175,7 +176,7 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
   }
 
   @Override
-  public SourceReader<T, IcebergSourceSplit> createReader(SourceReaderContext readerContext) {
+  public SourceReader<T, IcebergSplit> createReader(SourceReaderContext readerContext) {
     IcebergSourceReaderMetrics metrics =
         new IcebergSourceReaderMetrics(readerContext.metricGroup(), tableName);
     return new IcebergSourceReader<>(
@@ -183,19 +184,19 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
   }
 
   @Override
-  public SplitEnumerator<IcebergSourceSplit, IcebergEnumeratorState> createEnumerator(
-      SplitEnumeratorContext<IcebergSourceSplit> enumContext) {
+  public SplitEnumerator<IcebergSplit, IcebergEnumeratorState> createEnumerator(
+      SplitEnumeratorContext<IcebergSplit> enumContext) {
     return createEnumerator(enumContext, null);
   }
 
   @Override
-  public SplitEnumerator<IcebergSourceSplit, IcebergEnumeratorState> restoreEnumerator(
-      SplitEnumeratorContext<IcebergSourceSplit> enumContext, IcebergEnumeratorState enumState) {
+  public SplitEnumerator<IcebergSplit, IcebergEnumeratorState> restoreEnumerator(
+      SplitEnumeratorContext<IcebergSplit> enumContext, IcebergEnumeratorState enumState) {
     return createEnumerator(enumContext, enumState);
   }
 
   @Override
-  public SimpleVersionedSerializer<IcebergSourceSplit> getSplitSerializer() {
+  public SimpleVersionedSerializer<IcebergSplit> getSplitSerializer() {
     return new IcebergSourceSplitSerializer(scanContext.caseSensitive());
   }
 
@@ -204,8 +205,8 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
     return new IcebergEnumeratorStateSerializer(scanContext.caseSensitive());
   }
 
-  private SplitEnumerator<IcebergSourceSplit, IcebergEnumeratorState> createEnumerator(
-      SplitEnumeratorContext<IcebergSourceSplit> enumContext,
+  private SplitEnumerator<IcebergSplit, IcebergEnumeratorState> createEnumerator(
+      SplitEnumeratorContext<IcebergSplit> enumContext,
       @Nullable IcebergEnumeratorState enumState) {
     SplitAssigner assigner;
     if (enumState == null) {
@@ -225,7 +226,7 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
     } else {
       if (enumState == null) {
         // Only do scan planning if nothing is restored from checkpoint state
-        List<IcebergSourceSplit> splits = planSplitsForBatch(planningThreadName());
+        List<IcebergSplit> splits = planSplitsForBatch(planningThreadName());
         assigner.onDiscoveredSplits(splits);
         // clear the cached splits after enumerator creation as they won't be needed anymore
         this.batchSplits = null;
@@ -245,7 +246,7 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
             flinkConf,
             scanContext.limit(),
             () -> {
-              List<IcebergSourceSplit> splits = planSplitsForBatch(planningThreadName());
+              List<IcebergSplit> splits = planSplitsForBatch(planningThreadName());
               return splits.size();
             });
 
@@ -287,7 +288,7 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
     private TableLoader tableLoader;
     private Table table;
     private SplitAssignerFactory splitAssignerFactory;
-    private SerializableComparator<IcebergSourceSplit> splitComparator;
+    private SerializableComparator<IcebergSplit> splitComparator;
     private ReaderFunction<T> readerFunction;
     private RowDataConverter<T> converter;
     private ReadableConfig flinkConfig = new Configuration();
@@ -315,8 +316,7 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
       return this;
     }
 
-    public Builder<T> splitComparator(
-        SerializableComparator<IcebergSourceSplit> newSplitComparator) {
+    public Builder<T> splitComparator(SerializableComparator<IcebergSplit> newSplitComparator) {
       this.splitComparator = newSplitComparator;
       return this;
     }
@@ -670,6 +670,17 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
             new MetaDataReaderFunction(
                 flinkConfig, table.schema(), context.project(), table.io(), table.encryption());
         return (ReaderFunction<T>) rowDataReaderFunction;
+      } else if (context.changelogEnabled()) {
+        return (ReaderFunction<T>)
+            new ChangelogRowDataReaderFunction(
+                flinkConfig,
+                table.schema(),
+                context.project(),
+                context.nameMapping(),
+                context.caseSensitive(),
+                table.io(),
+                table.encryption(),
+                context.filters());
       } else {
         if (converter == null) {
           return (ReaderFunction<T>)

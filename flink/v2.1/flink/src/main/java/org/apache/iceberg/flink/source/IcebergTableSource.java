@@ -198,6 +198,12 @@ public class IcebergTableSource
 
   @Override
   public ChangelogMode getChangelogMode() {
+    if (PropertyUtil.propertyAsBoolean(properties, FlinkReadOptions.CHANGELOG_ENABLED, false)) {
+      return ChangelogMode.newBuilder()
+          .addContainedKind(org.apache.flink.types.RowKind.INSERT)
+          .addContainedKind(org.apache.flink.types.RowKind.DELETE)
+          .build();
+    }
     return ChangelogMode.insertOnly();
   }
 

@@ -120,4 +120,8 @@ public class FlinkReadOptions {
       ConfigOptions.key(PREFIX + WATERMARK_COLUMN_TIME_UNIT)
           .enumType(TimeUnit.class)
           .defaultValue(TimeUnit.MICROSECONDS);
+
+  public static final String CHANGELOG_ENABLED = "scan.changelog-enabled";
+  public static final ConfigOption<Boolean> CHANGELOG_ENABLED_OPTION =
+      ConfigOptions.key(PREFIX + CHANGELOG_ENABLED).booleanType().defaultValue(false);
 }
