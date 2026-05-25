@@ -19,10 +19,10 @@
 package org.apache.iceberg.flink.source.reader;
 
 import java.io.Serializable;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 
 /** The interface used to extract watermarks from splits. */
 public interface SplitWatermarkExtractor extends Serializable {
   /** Get the watermark for a split. */
-  long extractWatermark(IcebergSourceSplit split);
+  long extractWatermark(IcebergSplit split);
 }

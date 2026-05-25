@@ -28,7 +28,7 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.iceberg.flink.source.ScanContext;
 import org.apache.iceberg.flink.source.assigner.SplitAssigner;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 import org.apache.iceberg.flink.util.ElapsedTimeGauge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,7 +44,7 @@ public class ContinuousIcebergEnumerator extends AbstractIcebergEnumerator {
    */
   private static final int ENUMERATION_SPLIT_COUNT_HISTORY_SIZE = 3;
 
-  private final SplitEnumeratorContext<IcebergSourceSplit> enumeratorContext;
+  private final SplitEnumeratorContext<IcebergSplit> enumeratorContext;
   private final SplitAssigner assigner;
   private final ScanContext scanContext;
   private final ContinuousSplitPlanner splitPlanner;
@@ -64,7 +64,7 @@ public class ContinuousIcebergEnumerator extends AbstractIcebergEnumerator {
   private final ElapsedTimeGauge elapsedSecondsSinceLastSplitDiscovery;
 
   public ContinuousIcebergEnumerator(
-      SplitEnumeratorContext<IcebergSourceSplit> enumeratorContext,
+      SplitEnumeratorContext<IcebergSplit> enumeratorContext,
       SplitAssigner assigner,
       ScanContext scanContext,
       ContinuousSplitPlanner splitPlanner,

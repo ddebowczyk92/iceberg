@@ -26,9 +26,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.flink.annotation.Internal;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitStatus;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 import org.apache.iceberg.flink.source.split.SerializableComparator;
 
 /**
@@ -38,19 +38,17 @@ import org.apache.iceberg.flink.source.split.SerializableComparator;
 @Internal
 public class DefaultSplitAssigner implements SplitAssigner {
 
-  private final Queue<IcebergSourceSplit> pendingSplits;
+  private final Queue<IcebergSplit> pendingSplits;
   private CompletableFuture<Void> availableFuture;
 
-  public DefaultSplitAssigner(SerializableComparator<IcebergSourceSplit> comparator) {
+  public DefaultSplitAssigner(SerializableComparator<IcebergSplit> comparator) {
     this.pendingSplits = comparator == null ? new ArrayDeque<>() : new PriorityQueue<>(comparator);
   }
 
   public DefaultSplitAssigner(
-      SerializableComparator<IcebergSourceSplit> comparator,
+      SerializableComparator<IcebergSplit> comparator,
       Collection<IcebergSourceSplitState> assignerState) {
     this(comparator);
-    // Because default assigner only tracks unassigned splits,
-    // there is no need to filter splits based on status (unassigned) here.
     assignerState.forEach(splitState -> pendingSplits.add(splitState.split()));
   }
 
@@ -59,22 +57,22 @@ public class DefaultSplitAssigner implements SplitAssigner {
     if (pendingSplits.isEmpty()) {
       return GetSplitResult.unavailable();
     } else {
-      IcebergSourceSplit split = pendingSplits.poll();
+      IcebergSplit split = pendingSplits.poll();
       return GetSplitResult.forSplit(split);
     }
   }
 
   @Override
-  public void onDiscoveredSplits(Collection<IcebergSourceSplit> splits) {
+  public void onDiscoveredSplits(Collection<IcebergSplit> splits) {
     addSplits(splits);
   }
 
   @Override
-  public void onUnassignedSplits(Collection<IcebergSourceSplit> splits) {
+  public void onUnassignedSplits(Collection<IcebergSplit> splits) {
     addSplits(splits);
   }
 
-  private synchronized void addSplits(Collection<IcebergSourceSplit> splits) {
+  private synchronized void addSplits(Collection<IcebergSplit> splits) {
     if (!splits.isEmpty()) {
       pendingSplits.addAll(splits);
       // only complete pending future if new splits are discovered
@@ -105,9 +103,7 @@ public class DefaultSplitAssigner implements SplitAssigner {
 
   @Override
   public long pendingRecords() {
-    return pendingSplits.stream()
-        .map(split -> split.task().estimatedRowsCount())
-        .reduce(0L, Long::sum);
+    return pendingSplits.stream().map(IcebergSplit::estimatedRowsCount).reduce(0L, Long::sum);
   }
 
   private synchronized void completeAvailableFuturesIfNeeded() {

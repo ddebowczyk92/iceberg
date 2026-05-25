@@ -24,8 +24,8 @@ import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.iceberg.flink.source.ScanContext;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 
 /**
  * SplitAssigner interface is extracted out as a separate component so that we can plug in different
@@ -68,10 +68,10 @@ public interface SplitAssigner extends Closeable {
   GetSplitResult getNext(@Nullable String hostname);
 
   /** Add new splits discovered by enumerator */
-  void onDiscoveredSplits(Collection<IcebergSourceSplit> splits);
+  void onDiscoveredSplits(Collection<IcebergSplit> splits);
 
   /** Forward addSplitsBack event (for failed reader) to assigner */
-  void onUnassignedSplits(Collection<IcebergSourceSplit> splits);
+  void onUnassignedSplits(Collection<IcebergSplit> splits);
 
   /**
    * Some assigner (like event time alignment) may rack in-progress splits to advance watermark upon

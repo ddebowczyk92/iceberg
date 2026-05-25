@@ -31,7 +31,7 @@ import org.apache.iceberg.flink.TableLoader;
 import org.apache.iceberg.flink.source.FlinkSplitPlanner;
 import org.apache.iceberg.flink.source.ScanContext;
 import org.apache.iceberg.flink.source.StreamingStartingStrategy;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 import org.apache.iceberg.relocated.com.google.common.base.Preconditions;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 import org.apache.iceberg.util.SnapshotUtil;
@@ -131,7 +131,7 @@ public class ContinuousSplitPlannerImpl implements ContinuousSplitPlanner {
       ScanContext incrementalScan =
           scanContext.copyWithAppendsBetween(
               lastPosition.snapshotId(), toSnapshotInclusive.snapshotId());
-      List<IcebergSourceSplit> splits =
+      List<IcebergSplit> splits =
           FlinkSplitPlanner.planIcebergSourceSplits(table, incrementalScan, workerPool);
       LOG.info(
           "Discovered {} splits from incremental scan: "
@@ -165,7 +165,7 @@ public class ContinuousSplitPlannerImpl implements ContinuousSplitPlanner {
         "Get starting snapshot id {} based on strategy {}",
         startSnapshot.snapshotId(),
         scanContext.streamingStartingStrategy());
-    List<IcebergSourceSplit> splits = Collections.emptyList();
+    List<IcebergSplit> splits = Collections.emptyList();
     IcebergEnumeratorPosition toPosition;
     if (scanContext.streamingStartingStrategy()
         == StreamingStartingStrategy.TABLE_SCAN_THEN_INCREMENTAL) {

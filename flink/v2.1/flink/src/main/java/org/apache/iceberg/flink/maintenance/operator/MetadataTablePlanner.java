@@ -32,8 +32,8 @@ import org.apache.iceberg.flink.maintenance.api.DeleteOrphanFiles;
 import org.apache.iceberg.flink.maintenance.api.Trigger;
 import org.apache.iceberg.flink.source.FlinkSplitPlanner;
 import org.apache.iceberg.flink.source.ScanContext;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitSerializer;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 import org.apache.iceberg.relocated.com.google.common.base.Preconditions;
 import org.apache.iceberg.util.ThreadPools;
 import org.slf4j.Logger;
@@ -93,7 +93,7 @@ public class MetadataTablePlanner extends ProcessFunction<Trigger, MetadataTable
       throws Exception {
     try {
       table.refresh();
-      for (IcebergSourceSplit split :
+      for (IcebergSplit split :
           FlinkSplitPlanner.planIcebergSourceSplits(table, scanContext, workerPool)) {
         out.collect(new SplitInfo(splitSerializer.getVersion(), splitSerializer.serialize(split)));
       }

@@ -37,6 +37,7 @@ import org.apache.iceberg.encryption.PlaintextEncryptionManager;
 import org.apache.iceberg.flink.TestFixtures;
 import org.apache.iceberg.flink.TestHelpers;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 import org.apache.iceberg.flink.source.split.SerializableComparator;
 import org.apache.iceberg.hadoop.HadoopFileIO;
 import org.junit.jupiter.api.Test;
@@ -147,7 +148,7 @@ public class TestIcebergSourceReader {
   private IcebergSourceReader createReader(
       MetricGroup metricGroup,
       SourceReaderContext readerContext,
-      SerializableComparator<IcebergSourceSplit> splitComparator) {
+      SerializableComparator<IcebergSplit> splitComparator) {
     IcebergSourceReaderMetrics readerMetrics =
         new IcebergSourceReaderMetrics(metricGroup, "db.tbl");
     RowDataReaderFunction readerFunction =
@@ -168,9 +169,9 @@ public class TestIcebergSourceReader {
         readerContext);
   }
 
-  private static class IdBasedComparator implements SerializableComparator<IcebergSourceSplit> {
+  private static class IdBasedComparator implements SerializableComparator<IcebergSplit> {
     @Override
-    public int compare(IcebergSourceSplit o1, IcebergSourceSplit o2) {
+    public int compare(IcebergSplit o1, IcebergSplit o2) {
       return o1.splitId().compareTo(o2.splitId());
     }
   }

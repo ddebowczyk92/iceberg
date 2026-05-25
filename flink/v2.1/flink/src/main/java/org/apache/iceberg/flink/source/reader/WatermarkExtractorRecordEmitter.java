@@ -20,7 +20,7 @@ package org.apache.iceberg.flink.source.reader;
 
 import org.apache.flink.api.common.eventtime.Watermark;
 import org.apache.flink.api.connector.source.SourceOutput;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,8 +41,7 @@ class WatermarkExtractorRecordEmitter<T> implements SerializableRecordEmitter<T>
   }
 
   @Override
-  public void emitRecord(
-      RecordAndPosition<T> element, SourceOutput<T> output, IcebergSourceSplit split) {
+  public void emitRecord(RecordAndPosition<T> element, SourceOutput<T> output, IcebergSplit split) {
     if (!split.splitId().equals(lastSplitId)) {
       long newWatermark = timeExtractor.extractWatermark(split);
       if (newWatermark < watermark) {

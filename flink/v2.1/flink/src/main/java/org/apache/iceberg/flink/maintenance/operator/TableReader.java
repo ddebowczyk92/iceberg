@@ -94,7 +94,8 @@ abstract class TableReader<R> extends ProcessFunction<MetadataTablePlanner.Split
   @Override
   public void processElement(
       MetadataTablePlanner.SplitInfo splitInfo, Context ctx, Collector<R> out) throws Exception {
-    IcebergSourceSplit split = splitSerializer.deserialize(splitInfo.version(), splitInfo.split());
+    IcebergSourceSplit split =
+        (IcebergSourceSplit) splitSerializer.deserialize(splitInfo.version(), splitInfo.split());
     try (DataIterator<RowData> iterator = rowDataReaderFunction.createDataIterator(split)) {
       iterator.forEachRemaining(rowData -> extract(rowData, out));
     } catch (Exception e) {

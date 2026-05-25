@@ -19,8 +19,8 @@
 package org.apache.iceberg.flink.source.assigner;
 
 import java.util.Collection;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 import org.apache.iceberg.flink.source.split.SerializableComparator;
 
 /**
@@ -28,9 +28,9 @@ import org.apache.iceberg.flink.source.split.SerializableComparator;
  * will be defined by the {@link SerializableComparator}.
  */
 public class OrderedSplitAssignerFactory implements SplitAssignerFactory {
-  private final SerializableComparator<IcebergSourceSplit> comparator;
+  private final SerializableComparator<IcebergSplit> comparator;
 
-  public OrderedSplitAssignerFactory(SerializableComparator<IcebergSourceSplit> comparator) {
+  public OrderedSplitAssignerFactory(SerializableComparator<IcebergSplit> comparator) {
     this.comparator = comparator;
   }
 

@@ -24,7 +24,7 @@ import java.util.Map;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.connector.base.source.reader.SingleThreadMultiplexSourceReaderBase;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 import org.apache.iceberg.flink.source.split.SerializableComparator;
 import org.apache.iceberg.flink.source.split.SplitRequestEvent;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
@@ -32,13 +32,13 @@ import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 @Internal
 public class IcebergSourceReader<T>
     extends SingleThreadMultiplexSourceReaderBase<
-        RecordAndPosition<T>, T, IcebergSourceSplit, IcebergSourceSplit> {
+        RecordAndPosition<T>, T, IcebergSplit, IcebergSplit> {
 
   public IcebergSourceReader(
       SerializableRecordEmitter<T> emitter,
       IcebergSourceReaderMetrics metrics,
       ReaderFunction<T> readerFunction,
-      SerializableComparator<IcebergSourceSplit> splitComparator,
+      SerializableComparator<IcebergSplit> splitComparator,
       SourceReaderContext context) {
     super(
         () -> new IcebergSourceSplitReader<>(metrics, readerFunction, splitComparator, context),
@@ -49,25 +49,23 @@ public class IcebergSourceReader<T>
 
   @Override
   public void start() {
-    // We request a split only if we did not get splits during the checkpoint restore.
-    // Otherwise, reader restarts will keep requesting more and more splits.
     if (getNumberOfCurrentlyAssignedSplits() == 0) {
       requestSplit(Collections.emptyList());
     }
   }
 
   @Override
-  protected void onSplitFinished(Map<String, IcebergSourceSplit> finishedSplitIds) {
+  protected void onSplitFinished(Map<String, IcebergSplit> finishedSplitIds) {
     requestSplit(Lists.newArrayList(finishedSplitIds.keySet()));
   }
 
   @Override
-  protected IcebergSourceSplit initializedState(IcebergSourceSplit split) {
+  protected IcebergSplit initializedState(IcebergSplit split) {
     return split;
   }
 
   @Override
-  protected IcebergSourceSplit toSplitType(String splitId, IcebergSourceSplit splitState) {
+  protected IcebergSplit toSplitType(String splitId, IcebergSplit splitState) {
     return splitState;
   }
 

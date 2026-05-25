@@ -39,6 +39,7 @@ import org.apache.iceberg.flink.TestFixtures;
 import org.apache.iceberg.flink.source.reader.ColumnStatsWatermarkExtractor;
 import org.apache.iceberg.flink.source.reader.ReaderUtil;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 import org.apache.iceberg.flink.source.split.SerializableComparator;
 import org.apache.iceberg.flink.source.split.SplitComparators;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
@@ -75,7 +76,7 @@ public class TestWatermarkBasedSplitAssigner extends SplitAssignerTestBase {
     SplitAssigner assigner = splitAssigner();
 
     Instant now = Instant.now();
-    List<IcebergSourceSplit> splits =
+    List<IcebergSplit> splits =
         IntStream.range(0, 5)
             .mapToObj(i -> splitFromInstant(now.plus(i, ChronoUnit.MINUTES)))
             .collect(Collectors.toList());
@@ -100,19 +101,17 @@ public class TestWatermarkBasedSplitAssigner extends SplitAssignerTestBase {
             SplitComparators.watermark(
                 new ColumnStatsWatermarkExtractor(
                     TestFixtures.SCHEMA, "id", TimeUnit.MILLISECONDS)));
-    SerializableComparator<IcebergSourceSplit> comparator =
-        SerializationUtil.deserializeFromBytes(bytes);
+    SerializableComparator<IcebergSplit> comparator = SerializationUtil.deserializeFromBytes(bytes);
     assertThat(comparator).isNotNull();
   }
 
-  private void assertGetNext(SplitAssigner assigner, IcebergSourceSplit split) {
+  private void assertGetNext(SplitAssigner assigner, IcebergSplit split) {
     GetSplitResult result = assigner.getNext(null);
     assertThat(split).isEqualTo(result.split());
   }
 
   @Override
-  protected List<IcebergSourceSplit> createSplits(
-      int fileCount, int filesPerSplit, String version) {
+  protected List<IcebergSplit> createSplits(int fileCount, int filesPerSplit, String version) {
     return IntStream.range(0, fileCount / filesPerSplit)
         .mapToObj(
             splitNum ->

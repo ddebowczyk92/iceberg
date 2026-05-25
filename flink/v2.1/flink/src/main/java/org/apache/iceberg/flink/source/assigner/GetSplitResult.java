@@ -19,7 +19,7 @@
 package org.apache.iceberg.flink.source.assigner;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 import org.apache.iceberg.relocated.com.google.common.base.Preconditions;
 
 @Internal
@@ -39,14 +39,14 @@ public class GetSplitResult {
   }
 
   private final Status status;
-  private final IcebergSourceSplit split;
+  private final IcebergSplit split;
 
   private GetSplitResult(Status status) {
     this.status = status;
     this.split = null;
   }
 
-  private GetSplitResult(IcebergSourceSplit split) {
+  private GetSplitResult(IcebergSplit split) {
     Preconditions.checkNotNull(split, "Split cannot be null");
     this.status = Status.AVAILABLE;
     this.split = split;
@@ -56,7 +56,7 @@ public class GetSplitResult {
     return status;
   }
 
-  public IcebergSourceSplit split() {
+  public IcebergSplit split() {
     return split;
   }
 
@@ -71,7 +71,7 @@ public class GetSplitResult {
     return CONSTRAINED;
   }
 
-  public static GetSplitResult forSplit(IcebergSourceSplit split) {
+  public static GetSplitResult forSplit(IcebergSplit split) {
     return new GetSplitResult(split);
   }
 }

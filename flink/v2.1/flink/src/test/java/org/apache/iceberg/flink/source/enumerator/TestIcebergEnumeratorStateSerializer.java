@@ -33,6 +33,7 @@ import org.apache.iceberg.flink.source.SplitHelpers;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitStatus;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -73,7 +74,7 @@ public class TestIcebergEnumeratorStateSerializer {
   public void testSomeSnapshotIdAndPendingSplits() throws Exception {
     IcebergEnumeratorPosition position =
         IcebergEnumeratorPosition.of(2L, System.currentTimeMillis());
-    List<IcebergSourceSplit> splits =
+    List<IcebergSplit> splits =
         SplitHelpers.createSplitsFromTransientHadoopTable(temporaryFolder, 3, 1);
     Collection<IcebergSourceSplitState> pendingSplits = Lists.newArrayList();
     pendingSplits.add(
@@ -92,7 +93,7 @@ public class TestIcebergEnumeratorStateSerializer {
     if (version == 2) {
       IcebergEnumeratorPosition position =
           IcebergEnumeratorPosition.of(2L, System.currentTimeMillis());
-      List<IcebergSourceSplit> splits =
+      List<IcebergSplit> splits =
           SplitHelpers.createSplitsFromTransientHadoopTable(temporaryFolder, 3, 1);
       Collection<IcebergSourceSplitState> pendingSplits = Lists.newArrayList();
       pendingSplits.add(
@@ -133,8 +134,8 @@ public class TestIcebergEnumeratorStateSerializer {
       IcebergSourceSplitState actualSplitState = actualIterator.next();
       assertThat(actualSplitState.split().splitId())
           .isEqualTo(expectedSplitState.split().splitId());
-      assertThat(actualSplitState.split().fileOffset())
-          .isEqualTo(expectedSplitState.split().fileOffset());
+      assertThat(((IcebergSourceSplit) actualSplitState.split()).fileOffset())
+          .isEqualTo(((IcebergSourceSplit) expectedSplitState.split()).fileOffset());
       assertThat(actualSplitState.split().recordOffset())
           .isEqualTo(expectedSplitState.split().recordOffset());
       assertThat(actualSplitState.status()).isEqualTo(expectedSplitState.status());

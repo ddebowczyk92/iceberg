@@ -31,7 +31,9 @@ import org.apache.flink.connector.base.source.reader.splitreader.SplitReader;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitsAddition;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitsChange;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.flink.source.split.IcebergChangelogSourceSplit;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 import org.apache.iceberg.flink.source.split.SerializableComparator;
 import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
@@ -39,23 +41,23 @@ import org.apache.iceberg.relocated.com.google.common.collect.Queues;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-class IcebergSourceSplitReader<T> implements SplitReader<RecordAndPosition<T>, IcebergSourceSplit> {
+class IcebergSourceSplitReader<T> implements SplitReader<RecordAndPosition<T>, IcebergSplit> {
   private static final Logger LOG = LoggerFactory.getLogger(IcebergSourceSplitReader.class);
 
   private final IcebergSourceReaderMetrics metrics;
   private final ReaderFunction<T> openSplitFunction;
-  private final SerializableComparator<IcebergSourceSplit> splitComparator;
+  private final SerializableComparator<IcebergSplit> splitComparator;
   private final int indexOfSubtask;
-  private final Queue<IcebergSourceSplit> splits;
+  private final Queue<IcebergSplit> splits;
 
   private CloseableIterator<RecordsWithSplitIds<RecordAndPosition<T>>> currentReader;
-  private IcebergSourceSplit currentSplit;
+  private IcebergSplit currentSplit;
   private String currentSplitId;
 
   IcebergSourceSplitReader(
       IcebergSourceReaderMetrics metrics,
       ReaderFunction<T> openSplitFunction,
-      SerializableComparator<IcebergSourceSplit> splitComparator,
+      SerializableComparator<IcebergSplit> splitComparator,
       SourceReaderContext context) {
     this.metrics = metrics;
     this.openSplitFunction = openSplitFunction;
@@ -77,7 +79,7 @@ class IcebergSourceSplitReader<T> implements SplitReader<RecordAndPosition<T>, I
   public RecordsWithSplitIds<RecordAndPosition<T>> fetch() throws IOException {
     metrics.incrementSplitReaderFetchCalls(1);
     if (currentReader == null) {
-      IcebergSourceSplit nextSplit = splits.poll();
+      IcebergSplit nextSplit = splits.poll();
       if (nextSplit != null) {
         currentSplit = nextSplit;
         currentSplitId = nextSplit.splitId();
@@ -103,14 +105,14 @@ class IcebergSourceSplitReader<T> implements SplitReader<RecordAndPosition<T>, I
   }
 
   @Override
-  public void handleSplitsChanges(SplitsChange<IcebergSourceSplit> splitsChange) {
+  public void handleSplitsChanges(SplitsChange<IcebergSplit> splitsChange) {
     if (!(splitsChange instanceof SplitsAddition)) {
       throw new UnsupportedOperationException(
           String.format("Unsupported split change: %s", splitsChange.getClass()));
     }
 
     if (splitComparator != null) {
-      List<IcebergSourceSplit> newSplits = Lists.newArrayList(splitsChange.splits());
+      List<IcebergSplit> newSplits = Lists.newArrayList(splitsChange.splits());
       newSplits.sort(splitComparator);
       LOG.info("Add {} splits to reader: {}", newSplits.size(), newSplits);
       splits.addAll(newSplits);
@@ -135,7 +137,7 @@ class IcebergSourceSplitReader<T> implements SplitReader<RecordAndPosition<T>, I
 
   @Override
   public void pauseOrResumeSplits(
-      Collection<IcebergSourceSplit> splitsToPause, Collection<IcebergSourceSplit> splitsToResume) {
+      Collection<IcebergSplit> splitsToPause, Collection<IcebergSplit> splitsToResume) {
     // IcebergSourceSplitReader only reads splits sequentially. When waiting for watermark alignment
     // the SourceOperator will stop processing and recycling the fetched batches. This exhausts the
     // {@link ArrayPoolDataIteratorBatcher#pool} and the `currentReader.next()` call will be
@@ -143,11 +145,17 @@ class IcebergSourceSplitReader<T> implements SplitReader<RecordAndPosition<T>, I
     // `pauseOrResumeSplits` and the `wakeUp` are left empty.
   }
 
-  private long calculateBytes(IcebergSourceSplit split) {
-    return split.task().files().stream().map(FileScanTask::length).reduce(0L, Long::sum);
+  private long calculateBytes(IcebergSplit split) {
+    if (split instanceof IcebergSourceSplit) {
+      return ((IcebergSourceSplit) split)
+          .task().files().stream().map(FileScanTask::length).reduce(0L, Long::sum);
+    } else if (split instanceof IcebergChangelogSourceSplit) {
+      return ((IcebergChangelogSourceSplit) split).length();
+    }
+    return 0L;
   }
 
-  private long calculateBytes(SplitsChange<IcebergSourceSplit> splitsChanges) {
+  private long calculateBytes(SplitsChange<IcebergSplit> splitsChanges) {
     return splitsChanges.splits().stream().map(this::calculateBytes).reduce(0L, Long::sum);
   }
 

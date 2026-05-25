@@ -21,7 +21,7 @@ package org.apache.iceberg.flink.source.enumerator;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.iceberg.flink.source.assigner.SplitAssigner;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 
 /** One-time split enumeration at the start-up for batch execution */
 @Internal
@@ -29,7 +29,7 @@ public class StaticIcebergEnumerator extends AbstractIcebergEnumerator {
   private final SplitAssigner assigner;
 
   public StaticIcebergEnumerator(
-      SplitEnumeratorContext<IcebergSourceSplit> enumeratorContext, SplitAssigner assigner) {
+      SplitEnumeratorContext<IcebergSplit> enumeratorContext, SplitAssigner assigner) {
     super(enumeratorContext, assigner);
     this.assigner = assigner;
   }

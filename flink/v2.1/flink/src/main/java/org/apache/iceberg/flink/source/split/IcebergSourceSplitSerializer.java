@@ -24,8 +24,11 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
 @Internal
-public class IcebergSourceSplitSerializer implements SimpleVersionedSerializer<IcebergSourceSplit> {
-  private static final int VERSION = 3;
+public class IcebergSourceSplitSerializer implements SimpleVersionedSerializer<IcebergSplit> {
+  private static final int VERSION = 4;
+
+  static final byte TYPE_SOURCE_SPLIT = 0;
+  static final byte TYPE_CHANGELOG_SPLIT = 1;
 
   private final boolean caseSensitive;
 
@@ -39,12 +42,18 @@ public class IcebergSourceSplitSerializer implements SimpleVersionedSerializer<I
   }
 
   @Override
-  public byte[] serialize(IcebergSourceSplit split) throws IOException {
-    return split.serializeV3();
+  public byte[] serialize(IcebergSplit split) throws IOException {
+    if (split instanceof IcebergSourceSplit) {
+      return ((IcebergSourceSplit) split).serializeV4();
+    } else if (split instanceof IcebergChangelogSourceSplit) {
+      return ((IcebergChangelogSourceSplit) split).serializeV4();
+    } else {
+      throw new IOException("Unknown split type: " + split.getClass().getName());
+    }
   }
 
   @Override
-  public IcebergSourceSplit deserialize(int version, byte[] serialized) throws IOException {
+  public IcebergSplit deserialize(int version, byte[] serialized) throws IOException {
     switch (version) {
       case 1:
         return IcebergSourceSplit.deserializeV1(serialized);
@@ -52,13 +61,29 @@ public class IcebergSourceSplitSerializer implements SimpleVersionedSerializer<I
         return IcebergSourceSplit.deserializeV2(serialized, caseSensitive);
       case 3:
         return IcebergSourceSplit.deserializeV3(serialized, caseSensitive);
+      case 4:
+        return deserializeV4(serialized);
       default:
         throw new IOException(
             String.format(
                 Locale.ROOT,
-                "Failed to deserialize IcebergSourceSplit. "
-                    + "Encountered unsupported version: %d. Supported version are [1]",
+                "Failed to deserialize IcebergSplit. "
+                    + "Encountered unsupported version: %d. Supported versions are [1-4]",
                 version));
+    }
+  }
+
+  private IcebergSplit deserializeV4(byte[] serialized) throws IOException {
+    byte type = serialized[0];
+    byte[] inner = new byte[serialized.length - 1];
+    System.arraycopy(serialized, 1, inner, 0, inner.length);
+    switch (type) {
+      case TYPE_SOURCE_SPLIT:
+        return IcebergSourceSplit.deserializeV3(inner, caseSensitive);
+      case TYPE_CHANGELOG_SPLIT:
+        return IcebergChangelogSourceSplit.deserializeV1(inner);
+      default:
+        throw new IOException("Unknown split type tag: " + type);
     }
   }
 }

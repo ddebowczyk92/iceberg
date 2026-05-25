@@ -33,9 +33,9 @@ import org.apache.iceberg.flink.source.ScanContext;
 import org.apache.iceberg.flink.source.SplitHelpers;
 import org.apache.iceberg.flink.source.StreamingStartingStrategy;
 import org.apache.iceberg.flink.source.assigner.DefaultSplitAssigner;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitStatus;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 import org.apache.iceberg.flink.source.split.SplitRequestEvent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -45,7 +45,7 @@ public class TestContinuousIcebergEnumerator {
 
   @Test
   public void testDiscoverSplitWhenNoReaderRegistered() throws Exception {
-    TestingSplitEnumeratorContext<IcebergSourceSplit> enumeratorContext =
+    TestingSplitEnumeratorContext<IcebergSplit> enumeratorContext =
         new TestingSplitEnumeratorContext<>(4);
     ScanContext scanContext =
         ScanContext.builder()
@@ -61,7 +61,7 @@ public class TestContinuousIcebergEnumerator {
     assertThat(pendingSplitsEmpty).isEmpty();
 
     // make one split available and trigger the periodic discovery
-    List<IcebergSourceSplit> splits =
+    List<IcebergSplit> splits =
         SplitHelpers.createSplitsFromTransientHadoopTable(temporaryFolder, 1, 1);
     splitPlanner.addSplits(splits);
     enumeratorContext.triggerAllActions();
@@ -75,7 +75,7 @@ public class TestContinuousIcebergEnumerator {
 
   @Test
   public void testDiscoverWhenReaderRegistered() throws Exception {
-    TestingSplitEnumeratorContext<IcebergSourceSplit> enumeratorContext =
+    TestingSplitEnumeratorContext<IcebergSplit> enumeratorContext =
         new TestingSplitEnumeratorContext<>(4);
     ScanContext scanContext =
         ScanContext.builder()
@@ -92,7 +92,7 @@ public class TestContinuousIcebergEnumerator {
     enumerator.handleSourceEvent(2, new SplitRequestEvent());
 
     // make one split available and trigger the periodic discovery
-    List<IcebergSourceSplit> splits =
+    List<IcebergSplit> splits =
         SplitHelpers.createSplitsFromTransientHadoopTable(temporaryFolder, 1, 1);
     splitPlanner.addSplits(splits);
     enumeratorContext.triggerAllActions();
@@ -104,7 +104,7 @@ public class TestContinuousIcebergEnumerator {
 
   @Test
   public void testRequestingReaderUnavailableWhenSplitDiscovered() throws Exception {
-    TestingSplitEnumeratorContext<IcebergSourceSplit> enumeratorContext =
+    TestingSplitEnumeratorContext<IcebergSplit> enumeratorContext =
         new TestingSplitEnumeratorContext<>(4);
     ScanContext scanContext =
         ScanContext.builder()
@@ -124,7 +124,7 @@ public class TestContinuousIcebergEnumerator {
     enumeratorContext.registeredReaders().remove(2);
 
     // make one split available and trigger the periodic discovery
-    List<IcebergSourceSplit> splits =
+    List<IcebergSplit> splits =
         SplitHelpers.createSplitsFromTransientHadoopTable(temporaryFolder, 1, 1);
     assertThat(splits).hasSize(1);
     splitPlanner.addSplits(splits);
@@ -134,7 +134,7 @@ public class TestContinuousIcebergEnumerator {
     List<String> pendingSplitIds =
         enumerator.snapshotState(1).pendingSplits().stream()
             .map(IcebergSourceSplitState::split)
-            .map(IcebergSourceSplit::splitId)
+            .map(IcebergSplit::splitId)
             .collect(Collectors.toList());
     assertThat(pendingSplitIds).hasSameSizeAs(splits).first().isEqualTo(splits.get(0).splitId());
 
@@ -151,10 +151,10 @@ public class TestContinuousIcebergEnumerator {
   @Test
   public void testThrottlingDiscovery() throws Exception {
     // create 10 splits
-    List<IcebergSourceSplit> splits =
+    List<IcebergSplit> splits =
         SplitHelpers.createSplitsFromTransientHadoopTable(temporaryFolder, 10, 1);
 
-    TestingSplitEnumeratorContext<IcebergSourceSplit> enumeratorContext =
+    TestingSplitEnumeratorContext<IcebergSplit> enumeratorContext =
         new TestingSplitEnumeratorContext<>(4);
     ScanContext scanContext =
         ScanContext.builder()
@@ -229,7 +229,7 @@ public class TestContinuousIcebergEnumerator {
 
   @Test
   public void testTransientPlanningErrorsWithSuccessfulRetry() throws Exception {
-    TestingSplitEnumeratorContext<IcebergSourceSplit> enumeratorContext =
+    TestingSplitEnumeratorContext<IcebergSplit> enumeratorContext =
         new TestingSplitEnumeratorContext<>(4);
     ScanContext scanContext =
         ScanContext.builder()
@@ -243,7 +243,7 @@ public class TestContinuousIcebergEnumerator {
         createEnumerator(enumeratorContext, scanContext, splitPlanner);
 
     // Make one split available and trigger the periodic discovery
-    List<IcebergSourceSplit> splits =
+    List<IcebergSplit> splits =
         SplitHelpers.createSplitsFromTransientHadoopTable(temporaryFolder, 1, 1);
     splitPlanner.addSplits(splits);
 
@@ -262,7 +262,7 @@ public class TestContinuousIcebergEnumerator {
 
   @Test
   public void testOverMaxAllowedPlanningErrors() throws Exception {
-    TestingSplitEnumeratorContext<IcebergSourceSplit> enumeratorContext =
+    TestingSplitEnumeratorContext<IcebergSplit> enumeratorContext =
         new TestingSplitEnumeratorContext<>(4);
     ScanContext scanContext =
         ScanContext.builder()
@@ -275,7 +275,7 @@ public class TestContinuousIcebergEnumerator {
     createEnumerator(enumeratorContext, scanContext, splitPlanner);
 
     // Make one split available and trigger the periodic discovery
-    List<IcebergSourceSplit> splits =
+    List<IcebergSplit> splits =
         SplitHelpers.createSplitsFromTransientHadoopTable(temporaryFolder, 1, 1);
     splitPlanner.addSplits(splits);
 
@@ -298,7 +298,7 @@ public class TestContinuousIcebergEnumerator {
   @Test
   public void testPlanningIgnoringErrors() throws Exception {
     int expectedFailures = 3;
-    TestingSplitEnumeratorContext<IcebergSourceSplit> enumeratorContext =
+    TestingSplitEnumeratorContext<IcebergSplit> enumeratorContext =
         new TestingSplitEnumeratorContext<>(4);
     ScanContext scanContext =
         ScanContext.builder()
@@ -313,7 +313,7 @@ public class TestContinuousIcebergEnumerator {
         createEnumerator(enumeratorContext, scanContext, splitPlanner);
 
     // Make one split available and trigger the periodic discovery
-    List<IcebergSourceSplit> splits =
+    List<IcebergSplit> splits =
         SplitHelpers.createSplitsFromTransientHadoopTable(temporaryFolder, 1, 1);
     splitPlanner.addSplits(splits);
 
@@ -335,7 +335,7 @@ public class TestContinuousIcebergEnumerator {
   }
 
   private static ContinuousIcebergEnumerator createEnumerator(
-      SplitEnumeratorContext<IcebergSourceSplit> context,
+      SplitEnumeratorContext<IcebergSplit> context,
       ScanContext scanContext,
       ContinuousSplitPlanner splitPlanner) {
 

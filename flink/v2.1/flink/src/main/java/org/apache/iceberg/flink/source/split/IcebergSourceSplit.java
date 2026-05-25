@@ -19,13 +19,11 @@
 package org.apache.iceberg.flink.source.split;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.api.connector.source.SourceSplit;
 import org.apache.flink.core.memory.DataInputDeserializer;
 import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.flink.util.InstantiationUtil;
@@ -39,7 +37,7 @@ import org.apache.iceberg.relocated.com.google.common.collect.Iterables;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 
 @Internal
-public class IcebergSourceSplit implements SourceSplit, Serializable {
+public class IcebergSourceSplit implements IcebergSplit {
   private static final long serialVersionUID = 1L;
   private static final ThreadLocal<DataOutputSerializer> SERIALIZER_CACHE =
       ThreadLocal.withInitial(() -> new DataOutputSerializer(1024));
@@ -76,8 +74,14 @@ public class IcebergSourceSplit implements SourceSplit, Serializable {
     return fileOffset;
   }
 
+  @Override
   public long recordOffset() {
     return recordOffset;
+  }
+
+  @Override
+  public long estimatedRowsCount() {
+    return task.estimatedRowsCount();
   }
 
   @Override
@@ -85,6 +89,7 @@ public class IcebergSourceSplit implements SourceSplit, Serializable {
     return MoreObjects.toStringHelper(this).add("files", toString(task.files())).toString();
   }
 
+  @Override
   public void updatePosition(int newFileOffset, long newRecordOffset) {
     // invalidate the cache after position change
     serializedBytesCache = null;
@@ -139,9 +144,18 @@ public class IcebergSourceSplit implements SourceSplit, Serializable {
     return serialize(3);
   }
 
+  byte[] serializeV4() throws IOException {
+    return serialize(4);
+  }
+
   private byte[] serialize(int version) throws IOException {
     if (serializedBytesCache == null) {
       DataOutputSerializer out = SERIALIZER_CACHE.get();
+
+      if (version >= 4) {
+        out.writeByte(IcebergSourceSplitSerializer.TYPE_SOURCE_SPLIT);
+      }
+
       Collection<FileScanTask> fileScanTasks = task.tasks();
       Preconditions.checkArgument(
           fileOffset >= 0 && fileOffset < fileScanTasks.size(),
@@ -172,6 +186,7 @@ public class IcebergSourceSplit implements SourceSplit, Serializable {
         out.writeUTF(taskJson);
         break;
       case 3:
+      case 4:
         SerializerHelper.writeLongUTF(out, taskJson);
         break;
       default:

@@ -33,23 +33,23 @@ import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.flink.api.connector.source.SupportsHandleExecutionAttemptSourceEvent;
 import org.apache.iceberg.flink.source.assigner.GetSplitResult;
 import org.apache.iceberg.flink.source.assigner.SplitAssigner;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 import org.apache.iceberg.flink.source.split.SplitRequestEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 abstract class AbstractIcebergEnumerator
-    implements SplitEnumerator<IcebergSourceSplit, IcebergEnumeratorState>,
+    implements SplitEnumerator<IcebergSplit, IcebergEnumeratorState>,
         SupportsHandleExecutionAttemptSourceEvent {
   private static final Logger LOG = LoggerFactory.getLogger(AbstractIcebergEnumerator.class);
 
-  private final SplitEnumeratorContext<IcebergSourceSplit> enumeratorContext;
+  private final SplitEnumeratorContext<IcebergSplit> enumeratorContext;
   private final SplitAssigner assigner;
   private final Map<Integer, String> readersAwaitingSplit;
   private final AtomicReference<CompletableFuture<Void>> availableFuture;
 
   AbstractIcebergEnumerator(
-      SplitEnumeratorContext<IcebergSourceSplit> enumeratorContext, SplitAssigner assigner) {
+      SplitEnumeratorContext<IcebergSplit> enumeratorContext, SplitAssigner assigner) {
     this.enumeratorContext = enumeratorContext;
     this.assigner = assigner;
     this.readersAwaitingSplit = new LinkedHashMap<>();
@@ -109,7 +109,7 @@ abstract class AbstractIcebergEnumerator
   }
 
   @Override
-  public void addSplitsBack(List<IcebergSourceSplit> splits, int subtaskId) {
+  public void addSplitsBack(List<IcebergSplit> splits, int subtaskId) {
     LOG.info("Add {} splits back to the pool for failed subtask {}", splits.size(), subtaskId);
     assigner.onUnassignedSplits(splits);
     assignSplits();

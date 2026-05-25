@@ -21,11 +21,10 @@ package org.apache.iceberg.flink.source.reader;
 import java.io.Serializable;
 import java.util.function.Function;
 import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 import org.apache.iceberg.io.CloseableIterator;
 
 @FunctionalInterface
 public interface ReaderFunction<T>
     extends Serializable,
-        Function<
-            IcebergSourceSplit, CloseableIterator<RecordsWithSplitIds<RecordAndPosition<T>>>> {}
+        Function<IcebergSplit, CloseableIterator<RecordsWithSplitIds<RecordAndPosition<T>>>> {}

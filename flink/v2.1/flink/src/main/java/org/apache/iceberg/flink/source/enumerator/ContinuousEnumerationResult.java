@@ -19,11 +19,11 @@
 package org.apache.iceberg.flink.source.enumerator;
 
 import java.util.Collection;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 import org.apache.iceberg.relocated.com.google.common.base.Preconditions;
 
 class ContinuousEnumerationResult {
-  private final Collection<IcebergSourceSplit> splits;
+  private final Collection<IcebergSplit> splits;
   private final IcebergEnumeratorPosition fromPosition;
   private final IcebergEnumeratorPosition toPosition;
 
@@ -33,7 +33,7 @@ class ContinuousEnumerationResult {
    * @param toPosition should never be null. But it can have null snapshotId and snapshotTimestampMs
    */
   ContinuousEnumerationResult(
-      Collection<IcebergSourceSplit> splits,
+      Collection<IcebergSplit> splits,
       IcebergEnumeratorPosition fromPosition,
       IcebergEnumeratorPosition toPosition) {
     Preconditions.checkArgument(splits != null, "Invalid to splits collection: null");
@@ -43,7 +43,7 @@ class ContinuousEnumerationResult {
     this.toPosition = toPosition;
   }
 
-  public Collection<IcebergSourceSplit> splits() {
+  public Collection<IcebergSplit> splits() {
     return splits;
   }
 

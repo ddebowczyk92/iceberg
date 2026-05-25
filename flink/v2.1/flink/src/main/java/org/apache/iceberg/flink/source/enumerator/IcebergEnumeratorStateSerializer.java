@@ -25,10 +25,10 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.core.memory.DataInputDeserializer;
 import org.apache.flink.core.memory.DataOutputSerializer;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitSerializer;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitStatus;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 
 @Internal
@@ -163,7 +163,7 @@ public class IcebergEnumeratorStateSerializer
     for (int i = 0; i < splitCount; ++i) {
       byte[] splitBytes = new byte[in.readInt()];
       in.read(splitBytes);
-      IcebergSourceSplit split = splitSerializer.deserialize(splitSerializerVersion, splitBytes);
+      IcebergSplit split = splitSerializer.deserialize(splitSerializerVersion, splitBytes);
       String statusName = in.readUTF();
       pendingSplits.add(
           new IcebergSourceSplitState(split, IcebergSourceSplitStatus.valueOf(statusName)));

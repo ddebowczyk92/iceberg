@@ -27,8 +27,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.iceberg.flink.source.SplitHelpers;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -66,9 +66,9 @@ public abstract class SplitAssignerTestBase {
     SplitAssigner assigner = splitAssigner();
     assertGetNext(assigner, GetSplitResult.Status.UNAVAILABLE);
 
-    List<IcebergSourceSplit> splits1 = createSplits(1, 1, "1");
+    List<IcebergSplit> splits1 = createSplits(1, 1, "1");
     assertAvailableFuture(assigner, 1, () -> assigner.onDiscoveredSplits(splits1));
-    List<IcebergSourceSplit> splits2 = createSplits(1, 1, "1");
+    List<IcebergSplit> splits2 = createSplits(1, 1, "1");
     assertAvailableFuture(assigner, 1, () -> assigner.onUnassignedSplits(splits2));
 
     assigner.onDiscoveredSplits(createSplits(2, 1, "1"));
@@ -122,7 +122,7 @@ public abstract class SplitAssignerTestBase {
     assertThat(stateBeforeGet).hasSize(splitCount);
   }
 
-  protected List<IcebergSourceSplit> createSplits(int fileCount, int filesPerSplit, String version)
+  protected List<IcebergSplit> createSplits(int fileCount, int filesPerSplit, String version)
       throws Exception {
     return SplitHelpers.createSplitsFromTransientHadoopTable(
         temporaryFolder, fileCount, filesPerSplit, version);

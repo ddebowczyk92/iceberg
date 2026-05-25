@@ -32,24 +32,37 @@ public class SplitComparators {
   private SplitComparators() {}
 
   /** Comparator which orders the splits based on the file sequence number of the data files */
-  public static SerializableComparator<IcebergSourceSplit> fileSequenceNumber() {
-    return (IcebergSourceSplit o1, IcebergSourceSplit o2) -> {
+  public static SerializableComparator<IcebergSplit> fileSequenceNumber() {
+    return (IcebergSplit o1, IcebergSplit o2) -> {
+      if (o1 instanceof IcebergChangelogSourceSplit && o2 instanceof IcebergChangelogSourceSplit) {
+        IcebergChangelogSourceSplit c1 = (IcebergChangelogSourceSplit) o1;
+        IcebergChangelogSourceSplit c2 = (IcebergChangelogSourceSplit) o2;
+        int ordCmp = Integer.compare(c1.changeOrdinal(), c2.changeOrdinal());
+        return ordCmp != 0 ? ordCmp : o1.splitId().compareTo(o2.splitId());
+      }
+
       Preconditions.checkArgument(
-          o1.task().files().size() == 1 && o2.task().files().size() == 1,
+          o1 instanceof IcebergSourceSplit && o2 instanceof IcebergSourceSplit,
+          "fileSequenceNumber comparator requires IcebergSourceSplit instances");
+      IcebergSourceSplit s1 = (IcebergSourceSplit) o1;
+      IcebergSourceSplit s2 = (IcebergSourceSplit) o2;
+
+      Preconditions.checkArgument(
+          s1.task().files().size() == 1 && s2.task().files().size() == 1,
           "Could not compare combined task. Please use '%s' to prevent combining multiple files to a split",
           FlinkReadOptions.SPLIT_FILE_OPEN_COST);
 
-      Long seq1 = o1.task().files().iterator().next().file().fileSequenceNumber();
-      Long seq2 = o2.task().files().iterator().next().file().fileSequenceNumber();
+      Long seq1 = s1.task().files().iterator().next().file().fileSequenceNumber();
+      Long seq2 = s2.task().files().iterator().next().file().fileSequenceNumber();
 
       Preconditions.checkNotNull(
           seq1,
           "Invalid file sequence number: null. Doesn't support splits written with V1 format: %s",
-          o1);
+          s1);
       Preconditions.checkNotNull(
           seq2,
           "Invalid file sequence number: null. Doesn't support splits written with V1 format: %s",
-          o2);
+          s2);
 
       int temp = Long.compare(seq1, seq2);
       if (temp != 0) {
@@ -61,9 +74,9 @@ public class SplitComparators {
   }
 
   /** Comparator which orders the splits based on watermark of the splits */
-  public static SerializableComparator<IcebergSourceSplit> watermark(
+  public static SerializableComparator<IcebergSplit> watermark(
       SplitWatermarkExtractor watermarkExtractor) {
-    return (IcebergSourceSplit o1, IcebergSourceSplit o2) -> {
+    return (IcebergSplit o1, IcebergSplit o2) -> {
       long watermark1 = watermarkExtractor.extractWatermark(o1);
       long watermark2 = watermarkExtractor.extractWatermark(o2);
 

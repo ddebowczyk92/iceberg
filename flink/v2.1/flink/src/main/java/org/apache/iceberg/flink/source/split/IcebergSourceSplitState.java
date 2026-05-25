@@ -19,15 +19,15 @@
 package org.apache.iceberg.flink.source.split;
 
 public class IcebergSourceSplitState {
-  private final IcebergSourceSplit split;
+  private final IcebergSplit split;
   private final IcebergSourceSplitStatus status;
 
-  public IcebergSourceSplitState(IcebergSourceSplit split, IcebergSourceSplitStatus status) {
+  public IcebergSourceSplitState(IcebergSplit split, IcebergSourceSplitStatus status) {
     this.split = split;
     this.status = status;
   }
 
-  public IcebergSourceSplit split() {
+  public IcebergSplit split() {
     return split;
   }
 

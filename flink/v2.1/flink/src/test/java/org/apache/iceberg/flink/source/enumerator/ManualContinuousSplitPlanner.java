@@ -23,14 +23,14 @@ import java.util.List;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 import org.apache.iceberg.flink.source.ScanContext;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 import org.apache.iceberg.relocated.com.google.common.base.Preconditions;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 
 class ManualContinuousSplitPlanner implements ContinuousSplitPlanner {
   private final int maxPlanningSnapshotCount;
   // track splits per snapshot
-  private final NavigableMap<Long, List<IcebergSourceSplit>> splits;
+  private final NavigableMap<Long, List<IcebergSplit>> splits;
   private long latestSnapshotId;
   private int remainingFailures;
 
@@ -70,8 +70,8 @@ class ManualContinuousSplitPlanner implements ContinuousSplitPlanner {
       toSnapshotIdInclusive = latestSnapshotId;
     }
 
-    List<IcebergSourceSplit> discoveredSplits = Lists.newArrayList();
-    NavigableMap<Long, List<IcebergSourceSplit>> discoveredView =
+    List<IcebergSplit> discoveredSplits = Lists.newArrayList();
+    NavigableMap<Long, List<IcebergSplit>> discoveredView =
         splits.subMap(fromSnapshotIdExclusive, false, toSnapshotIdInclusive, true);
     discoveredView.forEach((snapshotId, snapshotSplits) -> discoveredSplits.addAll(snapshotSplits));
     ContinuousEnumerationResult result =
@@ -87,7 +87,7 @@ class ManualContinuousSplitPlanner implements ContinuousSplitPlanner {
    * Add a collection of new splits. A monotonically increased snapshotId is assigned to each batch
    * of splits added by this method.
    */
-  public synchronized void addSplits(List<IcebergSourceSplit> newSplits) {
+  public synchronized void addSplits(List<IcebergSplit> newSplits) {
     latestSnapshotId += 1;
     splits.put(latestSnapshotId, newSplits);
   }

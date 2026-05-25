@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.flink.annotation.Internal;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 import org.apache.iceberg.relocated.com.google.common.annotations.VisibleForTesting;
 import org.apache.iceberg.relocated.com.google.common.base.Preconditions;
 import org.apache.iceberg.types.Conversions;
@@ -77,8 +78,13 @@ public class ColumnStatsWatermarkExtractor implements SplitWatermarkExtractor, S
    * @throws IllegalArgumentException if there is no statistics for the column
    */
   @Override
-  public long extractWatermark(IcebergSourceSplit split) {
-    return split.task().files().stream()
+  public long extractWatermark(IcebergSplit split) {
+    Preconditions.checkArgument(
+        split instanceof IcebergSourceSplit,
+        "Watermark extraction only supported for IcebergSourceSplit, got: %s",
+        split.getClass().getSimpleName());
+    IcebergSourceSplit sourceSplit = (IcebergSourceSplit) split;
+    return sourceSplit.task().files().stream()
         .map(
             scanTask -> {
               Preconditions.checkArgument(

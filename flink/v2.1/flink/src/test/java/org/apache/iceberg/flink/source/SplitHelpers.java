@@ -46,6 +46,7 @@ import org.apache.iceberg.data.Record;
 import org.apache.iceberg.expressions.ResidualEvaluator;
 import org.apache.iceberg.flink.TestFixtures;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.split.IcebergSplit;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
@@ -73,7 +74,7 @@ public class SplitHelpers {
    * @param fileCount The number of files to create and add to the table
    * @param filesPerSplit The number of files used for a split
    */
-  public static List<IcebergSourceSplit> createSplitsFromTransientHadoopTable(
+  public static List<IcebergSplit> createSplitsFromTransientHadoopTable(
       Path temporaryFolder, int fileCount, int filesPerSplit) throws Exception {
     return createSplitsFromTransientHadoopTable(temporaryFolder, fileCount, filesPerSplit, "1");
   }
@@ -94,7 +95,7 @@ public class SplitHelpers {
    * @param filesPerSplit The number of files used for a split
    * @param version The table version to create
    */
-  public static List<IcebergSourceSplit> createSplitsFromTransientHadoopTable(
+  public static List<IcebergSplit> createSplitsFromTransientHadoopTable(
       Path temporaryFolder, int fileCount, int filesPerSplit, String version) throws Exception {
     final File warehouseFile = File.createTempFile("junit", null, temporaryFolder.toFile());
     assertThat(warehouseFile.delete()).isTrue();
@@ -119,14 +120,16 @@ public class SplitHelpers {
       }
 
       final ScanContext scanContext = ScanContext.builder().build();
-      final List<IcebergSourceSplit> splits =
+      final List<IcebergSplit> splits =
           FlinkSplitPlanner.planIcebergSourceSplits(
               table, scanContext, ThreadPools.getWorkerPool());
       return splits.stream()
           .flatMap(
               split -> {
                 List<List<FileScanTask>> filesList =
-                    Lists.partition(Lists.newArrayList(split.task().files()), filesPerSplit);
+                    Lists.partition(
+                        Lists.newArrayList(((IcebergSourceSplit) split).task().files()),
+                        filesPerSplit);
                 return filesList.stream()
                     .map(files -> new BaseCombinedScanTask(files))
                     .map(
