@@ -102,12 +102,11 @@ public class ChangelogRowDataReaderFunction implements ReaderFunction<RowData> {
         deletes = changelogSplit.deletes();
         break;
       case DELETED_ROWS:
-        // For DELETED_ROWS, combine existing deletes with added deletes.
-        // The reader applies all deletes, then the rows that survive the existing
-        // deletes but are matched by added deletes are the ones to emit.
-        // TODO: implement proper DELETED_ROWS handling with differential delete logic
-        deletes = changelogSplit.deletes();
-        break;
+        // DELETED_ROWS requires differential delete logic: read only the rows newly
+        // removed by added delete files. The core does not yet produce this task type
+        // (BaseIncrementalChangelogScan rejects snapshots with delete manifests).
+        throw new UnsupportedOperationException(
+            "DELETED_ROWS task type is not yet supported in changelog scans");
       default:
         throw new UnsupportedOperationException("Unknown task type: " + changelogSplit.taskType());
     }
